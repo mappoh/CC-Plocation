@@ -12,15 +12,23 @@ Counterion placement tool for Polyoxometalate (POM) structures. Generates divers
 - **Periodic boundary conditions**: all distance calculations use minimum image convention
 - **POSCAR output**: ready for VASP optimization with uniform naming for batch job submission
 
-## Requirements
+## Installation
+
+```bash
+# Clone and install
+git clone https://github.com/mappoh/CC-Plocation.git
+cd CC-Plocation
+pip install .
+
+# Or install directly from GitHub
+pip install git+https://github.com/mappoh/CC-Plocation.git
+```
+
+### Requirements
 
 - Python 3.9+
 - NumPy
 - SciPy
-
-```bash
-pip install -r requirements.txt
-```
 
 ## Usage
 
