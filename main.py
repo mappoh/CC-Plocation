@@ -9,14 +9,14 @@ DFT optimisation.
 Usage examples
 --------------
   # Auto-detect charge, place K+ with all strategies, 5 samples each:
-  python main.py --input mono.vasp --counterion K --samples 5
+  cc-plocation --input mono.vasp --counterion K --samples 5
 
   # Specify ion count manually, single strategy:
-  python main.py --input tri.vasp --counterion K --n-ions 7 \
-                 --strategies boltzmann --samples 10
+  cc-plocation --input tri.vasp --counterion K --n-ions 7 \
+               --strategies boltzmann --samples 10
 
   # Custom TM buffer and seed:
-  python main.py --input mono.vasp --counterion Na --tm-buffer 4.0 --seed 123
+  cc-plocation --input mono.vasp --counterion Na --tm-buffer 4.0 --seed 123
 """
 
 import argparse

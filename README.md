@@ -34,25 +34,25 @@ pip install git+https://github.com/mappoh/CC-Plocation.git
 
 ```bash
 # Auto-detect charge and place counterions with all strategies:
-python main.py --input structure.vasp --counterion K
+cc-plocation --input structure.vasp --counterion K
 
 # Specify ion count and number of samples:
-python main.py --input structure.vasp --counterion K --n-ions 5 --samples 10
+cc-plocation --input structure.vasp --counterion K --n-ions 5 --samples 10
 
 # Use specific strategies only:
-python main.py --input structure.vasp --counterion K --strategies boltzmann electrostatic
+cc-plocation --input structure.vasp --counterion K --strategies boltzmann electrostatic
 
 # Divalent counterion:
-python main.py --input structure.vasp --counterion Ca --counterion-charge 2
+cc-plocation --input structure.vasp --counterion Ca --counterion-charge 2
 
 # Custom TM buffer and output directory:
-python main.py --input structure.vasp --counterion Na --tm-buffer 4.0 --output-dir ./my_configs
+cc-plocation --input structure.vasp --counterion Na --tm-buffer 4.0 --output-dir ./my_configs
 
 # Override oxidation states:
-python main.py --input structure.vasp --counterion K --oxidation-states Ni:+3
+cc-plocation --input structure.vasp --counterion K --oxidation-states Ni:+3
 
 # Verbose logging:
-python main.py --input structure.vasp --counterion K -v
+cc-plocation --input structure.vasp --counterion K -v
 ```
 
 ## Options
