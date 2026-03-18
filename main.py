@@ -240,15 +240,17 @@ def run(args):
         n_generated = 0
         n_passed = 0
 
+        # Create strategy instance once per strategy (avoids rebuilding
+        # expensive internal data structures, e.g. electrostatic potential grid)
+        kwargs = {}
+        if args.min_ion_spacing is not None:
+            kwargs["min_ion_spacing"] = args.min_ion_spacing
+
+        strategy = strat_class(structure, grid, args.counterion, **kwargs)
+
         for sample_i in range(args.samples):
             seed = args.seed + sample_i * 1000 + hash(strat_name) % 10000
 
-            # Create strategy instance
-            kwargs = {}
-            if args.min_ion_spacing is not None:
-                kwargs["min_ion_spacing"] = args.min_ion_spacing
-
-            strategy = strat_class(structure, grid, args.counterion, **kwargs)
             positions = strategy.place(n_ions, seed=seed)
             n_generated += 1
 

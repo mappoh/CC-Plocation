@@ -24,13 +24,13 @@ from pbc_utils import (
     minimum_image_distance,
     wrap_fractional,
 )
-from defaults import OXIDATION_STATES as FORMAL_CHARGES
-
-# ---------------------------------------------------------------------------
-# Physical constants
-# ---------------------------------------------------------------------------
-KE = 14.3996  # Coulomb constant  k_e  [eV * Angstrom / e^2]
-KB_EV = 8.617333262e-5  # Boltzmann constant [eV / K]
+from defaults import (
+    OXIDATION_STATES as FORMAL_CHARGES,
+    K_COULOMB as KE,
+    KB_EV,
+    TM_ELEMENTS,
+    VDW_RADII,
+)
 
 
 # ===================================================================
@@ -79,7 +79,6 @@ class PlacementStrategy(ABC):
         self.counterion_element = counterion_element
         # Default min_ion_spacing = 2 * vdW radius of counterion (vdW sum)
         if min_ion_spacing is None:
-            from defaults import VDW_RADII
             r = VDW_RADII.get(counterion_element, 2.0)
             self.min_ion_spacing = 2.0 * r
         else:
@@ -103,7 +102,6 @@ class PlacementStrategy(ABC):
     def _check_framework_distance(self, candidate):
         """Return True if *candidate* passes exact vdW overlap check
         against all framework atoms (supplements the grid check)."""
-        from defaults import VDW_RADII
         ion_r = VDW_RADII.get(self.counterion_element, 2.0)
         for i, pos in enumerate(self.positions):
             fw_r = VDW_RADII.get(self.atom_labels[i], 2.0)
@@ -369,12 +367,8 @@ class ClusteredGaussian(PlacementStrategy):
           to find cluster centres.
         - Weights = number of oxygen atoms assigned to each cluster.
         """
-        # Transition metals (d-block elements commonly in POMs)
-        tm_symbols = {
-            "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-            "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
-            "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
-        }
+        # Transition metals (from defaults)
+        tm_symbols = set(TM_ELEMENTS)
         oxy_pos = np.array(
             [p for p, l in zip(self.positions, self.atom_labels) if l == "O"],
             dtype=np.float64,
@@ -483,32 +477,6 @@ class ShellBased(PlacementStrategy):
         self._shell_radii = None
         self._shell_for_ion = None
         self._current_ion_index = 0
-
-    def place(self, n_ions, seed=None):
-        """Distribute ions across shells, then sample on each shell."""
-        # Determine shells needed
-        n_shells = max(1, int(np.ceil(n_ions / max(1, n_ions))))
-        # Use enough shells to spread ions (~4-6 per shell)
-        ions_per_shell_target = max(1, min(n_ions, 6))
-        n_shells = max(1, int(np.ceil(n_ions / ions_per_shell_target)))
-
-        self._shell_radii = np.array(
-            [
-                self._max_radius + self.buffer + i * self.shell_spacing
-                for i in range(n_shells)
-            ]
-        )
-
-        # Distribute ions as evenly as possible across shells
-        base = n_ions // n_shells
-        extra = n_ions % n_shells
-        self._shell_for_ion = []
-        for s in range(n_shells):
-            count = base + (1 if s < extra else 0)
-            self._shell_for_ion.extend([s] * count)
-
-        self._current_ion_index = 0
-        return super().place(n_ions, seed=seed)
 
     def _propose_position(self, rng, placed_positions):
         """Pick the shell for the current ion and sample a random point

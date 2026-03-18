@@ -111,6 +111,13 @@ SCORING: Dict[str, float] = {
 }
 
 # ---------------------------------------------------------------------------
+# Physical constants
+# ---------------------------------------------------------------------------
+K_COULOMB: float = 14.3996          # Coulomb constant k_e [eV * Angstrom / e^2]
+KB_EV: float = 8.617333262e-5       # Boltzmann constant [eV / K]
+TM_COORDINATION_CUTOFF: float = 2.5 # First coordination shell cutoff (Angstroms)
+
+# ---------------------------------------------------------------------------
 # VESTA RGB colour mappings for visualisation (0-255 per channel)
 # ---------------------------------------------------------------------------
 VESTA_COLORS: Dict[str, Tuple[int, int, int]] = {

@@ -134,6 +134,40 @@ def get_all_pbc_distances(
 
 
 # ---------------------------------------------------------------------------
+# Cross-set PBC distance matrix
+# ---------------------------------------------------------------------------
+
+def cross_pbc_distance_matrix(
+    positions_a: np.ndarray,
+    positions_b: np.ndarray,
+    lattice: np.ndarray,
+) -> np.ndarray:
+    """Compute PBC-aware distance matrix between two sets of positions.
+
+    Parameters
+    ----------
+    positions_a : np.ndarray
+        (M, 3) array of Cartesian positions.
+    positions_b : np.ndarray
+        (N, 3) array of Cartesian positions.
+    lattice : np.ndarray
+        (3, 3) lattice matrix (rows = lattice vectors).
+
+    Returns
+    -------
+    np.ndarray
+        (M, N) distance matrix using minimum image convention.
+    """
+    inv_lattice = np.linalg.inv(lattice)
+    # diff[i, j] = positions_b[j] - positions_a[i], shape (M, N, 3)
+    diff = positions_b[np.newaxis, :, :] - positions_a[:, np.newaxis, :]
+    diff_frac = np.einsum("ijk,lk->ijl", diff, inv_lattice)
+    diff_frac -= np.round(diff_frac)
+    diff_cart = np.einsum("ijk,kl->ijl", diff_frac, lattice)
+    return np.linalg.norm(diff_cart, axis=-1)
+
+
+# ---------------------------------------------------------------------------
 # Periodic KDTree
 # ---------------------------------------------------------------------------
 

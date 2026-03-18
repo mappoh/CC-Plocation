@@ -8,6 +8,7 @@ with support for batch output of multiple configurations.
 from typing import Dict, Any, List, Optional
 import os
 import numpy as np
+from pbc_utils import cart_to_frac
 
 
 def write_poscar(
@@ -62,8 +63,7 @@ def write_poscar(
         ])
 
     # Convert to fractional for output (Direct format is standard)
-    inv_lattice = np.linalg.inv(lattice)
-    frac_positions = combined_positions @ inv_lattice
+    frac_positions = cart_to_frac(combined_positions, lattice)
 
     # Build comment line
     if comment is None:

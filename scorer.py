@@ -12,96 +12,8 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from pbc_utils import minimum_image_distance
-
-# Coulomb constant in eV*Ang/e^2
-K_COULOMB: float = 14.3996
-
-# Default vdW radii (Angstroms) for common elements
-VDW_RADII: Dict[str, float] = {
-    "H": 1.20, "He": 1.40, "Li": 1.82, "Be": 1.53, "B": 1.92,
-    "C": 1.70, "N": 1.55, "O": 1.52, "F": 1.47, "Ne": 1.54,
-    "Na": 2.27, "Mg": 1.73, "Al": 1.84, "Si": 2.10, "P": 1.80,
-    "S": 1.80, "Cl": 1.75, "Ar": 1.88, "K": 2.75, "Ca": 2.31,
-    "Sc": 2.11, "Ti": 1.87, "V": 1.79, "Cr": 1.89, "Mn": 1.97,
-    "Fe": 1.94, "Co": 1.92, "Ni": 1.63, "Cu": 1.40, "Zn": 1.39,
-    "Ga": 1.87, "Ge": 2.11, "As": 1.85, "Se": 1.90, "Br": 1.85,
-    "Kr": 2.02, "Rb": 3.03, "Sr": 2.49, "Y": 2.19, "Zr": 1.86,
-    "Nb": 2.07, "Mo": 2.09, "Tc": 2.09, "Ru": 2.07, "Rh": 1.95,
-    "Pd": 1.63, "Ag": 1.72, "Cd": 1.58, "In": 1.93, "Sn": 2.17,
-    "Sb": 2.06, "Te": 2.06, "I": 1.98, "Xe": 2.16, "Cs": 3.43,
-    "Ba": 2.68, "La": 2.43, "W": 2.10, "Re": 2.05, "Os": 2.00,
-    "Ir": 2.02, "Pt": 1.75, "Au": 1.66, "Hg": 1.55, "Tl": 1.96,
-    "Pb": 2.02, "Bi": 2.07,
-}
-
-# Default set of transition metal element symbols
-DEFAULT_TM_ELEMENTS = {
-    "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn",
-    "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd",
-    "La", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg",
-}
-
-
-def _get_vdw_radius(element: str) -> float:
-    """Return vdW radius for *element*, defaulting to 2.0 A if unknown."""
-    return VDW_RADII.get(element, 2.0)
-
-
-def _cross_pbc_distance_matrix(
-    positions_a: np.ndarray,
-    positions_b: np.ndarray,
-    lattice: np.ndarray,
-) -> np.ndarray:
-    """Compute PBC-aware distance matrix between two sets of positions.
-
-    Parameters
-    ----------
-    positions_a : np.ndarray
-        (M, 3) array of Cartesian positions.
-    positions_b : np.ndarray
-        (N, 3) array of Cartesian positions.
-    lattice : np.ndarray
-        (3, 3) lattice matrix (rows = lattice vectors).
-
-    Returns
-    -------
-    np.ndarray
-        (M, N) distance matrix using minimum image convention.
-    """
-    inv_lattice = np.linalg.inv(lattice)
-    # diff[i, j] = positions_b[j] - positions_a[i], shape (M, N, 3)
-    diff = positions_b[np.newaxis, :, :] - positions_a[:, np.newaxis, :]
-    diff_frac = np.einsum("ijk,lk->ijl", diff, inv_lattice)
-    diff_frac -= np.round(diff_frac)
-    diff_cart = np.einsum("ijk,kl->ijl", diff_frac, lattice)
-    return np.linalg.norm(diff_cart, axis=-1)
-
-
-def _minimum_image_vector(
-    pos1: np.ndarray,
-    pos2: np.ndarray,
-    lattice: np.ndarray,
-) -> np.ndarray:
-    """Return the minimum-image displacement vector from pos1 to pos2.
-
-    Parameters
-    ----------
-    pos1, pos2 : np.ndarray
-        (3,) Cartesian positions.
-    lattice : np.ndarray
-        (3, 3) lattice matrix (rows = lattice vectors).
-
-    Returns
-    -------
-    np.ndarray
-        (3,) Cartesian displacement vector under minimum image convention.
-    """
-    inv_lattice = np.linalg.inv(lattice)
-    diff_cart = pos2 - pos1
-    diff_frac = diff_cart @ inv_lattice
-    diff_frac -= np.round(diff_frac)
-    return diff_frac @ lattice
+from defaults import K_COULOMB, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
+from pbc_utils import cross_pbc_distance_matrix, minimum_image_distance
 
 
 class ConfigurationScorer:
@@ -122,7 +34,7 @@ class ConfigurationScorer:
         Map element symbol -> formal charge for every framework species.
     tm_elements : set[str] or None
         Set of transition-metal element symbols present in the framework.
-        If None, auto-detected from DEFAULT_TM_ELEMENTS.
+        If None, auto-detected from TM_ELEMENTS.
     tm_buffer : float
         Minimum allowed distance (A) between a counterion and a *buried* TM.
     energy_threshold : float or None
@@ -155,7 +67,7 @@ class ConfigurationScorer:
 
         # Identify TM sites
         if tm_elements is None:
-            self.tm_elements = DEFAULT_TM_ELEMENTS
+            self.tm_elements = set(TM_ELEMENTS)
         else:
             self.tm_elements = set(tm_elements)
         self.tm_indices: List[int] = [
@@ -167,9 +79,9 @@ class ConfigurationScorer:
 
         # Pre-compute vdW radii for framework atoms
         self.framework_vdw: np.ndarray = np.array(
-            [_get_vdw_radius(s) for s in self.species], dtype=np.float64
+            [VDW_RADII.get(s, 2.0) for s in self.species], dtype=np.float64
         )
-        self.counterion_vdw: float = _get_vdw_radius(counterion_element)
+        self.counterion_vdw: float = VDW_RADII.get(counterion_element, 2.0)
 
         # Identify which TM atoms are "buried" (not surface-exposed)
         self._buried_tm_mask = self._compute_buried_tm_mask()
@@ -198,7 +110,7 @@ class ConfigurationScorer:
             dists = np.array([
                 minimum_image_distance(tm_pos, oc, self.lattice) for oc in o_coords
             ])
-            n_close = np.sum(dists < 2.5)
+            n_close = np.sum(dists < TM_COORDINATION_CUTOFF)
             buried[k] = n_close >= 4
         return buried
 
@@ -210,7 +122,7 @@ class ConfigurationScorer:
             return {"passed": True, "value": np.inf, "threshold": 0.0,
                     "detail": "No ions to check"}
 
-        dist_mat = _cross_pbc_distance_matrix(
+        dist_mat = cross_pbc_distance_matrix(
             ion_positions, self.cart_coords, self.lattice
         )
         # vdW sum for each (ion, framework_atom) pair
@@ -239,7 +151,7 @@ class ConfigurationScorer:
             return {"passed": True, "value": np.inf, "threshold": 0.0,
                     "detail": "Fewer than 2 ions"}
 
-        dist_mat = _cross_pbc_distance_matrix(
+        dist_mat = cross_pbc_distance_matrix(
             ion_positions, ion_positions, self.lattice
         )
         np.fill_diagonal(dist_mat, np.inf)
@@ -271,7 +183,7 @@ class ConfigurationScorer:
                     "threshold": self.tm_buffer,
                     "detail": "No buried TM sites"}
 
-        dist_mat = _cross_pbc_distance_matrix(
+        dist_mat = cross_pbc_distance_matrix(
             ion_positions, buried_coords, self.lattice
         )
         min_dist = float(np.min(dist_mat))
@@ -296,7 +208,7 @@ class ConfigurationScorer:
                     "threshold": self.min_ion_spacing,
                     "detail": "Fewer than 2 ions"}
 
-        dist_mat = _cross_pbc_distance_matrix(
+        dist_mat = cross_pbc_distance_matrix(
             ion_positions, ion_positions, self.lattice
         )
         np.fill_diagonal(dist_mat, np.inf)
@@ -361,8 +273,8 @@ class ConfigurationScorer:
         n_total = n_fw + n_ion
 
         # Vectorised pairwise Coulomb sum using minimum image convention
-        # Build full distance matrix via _cross_pbc_distance_matrix
-        dist_mat = _cross_pbc_distance_matrix(all_coords, all_coords, self.lattice)
+        # Build full distance matrix via cross_pbc_distance_matrix
+        dist_mat = cross_pbc_distance_matrix(all_coords, all_coords, self.lattice)
 
         # Charge product matrix (upper triangle)
         charge_prod = np.outer(all_charges, all_charges)
@@ -418,7 +330,7 @@ class ConfigurationScorer:
 
         # Distance summaries
         if len(ions) > 0:
-            fw_dists = _cross_pbc_distance_matrix(
+            fw_dists = cross_pbc_distance_matrix(
                 ions, self.cart_coords, self.lattice
             )
             min_ion_fw = float(np.min(fw_dists))
@@ -426,7 +338,7 @@ class ConfigurationScorer:
             min_ion_fw = np.inf
 
         if len(ions) >= 2:
-            ion_dists = _cross_pbc_distance_matrix(
+            ion_dists = cross_pbc_distance_matrix(
                 ions, ions, self.lattice
             )
             np.fill_diagonal(ion_dists, np.inf)
@@ -435,7 +347,7 @@ class ConfigurationScorer:
             min_ion_ion = np.inf
 
         if len(self.tm_coords) > 0 and len(ions) > 0:
-            tm_dists = _cross_pbc_distance_matrix(
+            tm_dists = cross_pbc_distance_matrix(
                 ions, self.tm_coords, self.lattice
             )
             min_ion_tm = float(np.min(tm_dists))
