@@ -13,5 +13,20 @@ dependencies = [
     "scipy>=1.7",
 ]
 
+[tool.setuptools]
+py-modules = [
+    "main",
+    "charge_analyzer",
+    "defaults",
+    "diversity",
+    "framework_analyzer",
+    "pbc_utils",
+    "placement_strategies",
+    "reporter",
+    "scorer",
+    "structure_parser",
+    "writer",
+]
+
 [project.scripts]
 cc-plocation = "main:main"
