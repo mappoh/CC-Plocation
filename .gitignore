@@ -7,3 +7,4 @@ dist/
 build/
 *.vasp
 POSCAR*
+visualization.py
