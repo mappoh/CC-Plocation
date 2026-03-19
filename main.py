@@ -38,7 +38,7 @@ from placement_strategies import (
     ElectrostaticGuided,
     BoltzmannMC,
 )
-from defaults import MAX_FRAMEWORK_DISTANCE, VDW_RADII
+from defaults import IONIC_RADII, MAX_FRAMEWORK_DISTANCE, VDW_RADII
 from scorer import ConfigurationScorer
 from diversity import DiversityAnalyzer
 from writer import write_poscar, write_batch
@@ -203,7 +203,7 @@ def run(args):
 
         # vdW-based floor: must exceed the smallest vdW contact distance
         # so there is actually room between vdW exclusion and max distance
-        r_counter = VDW_RADII.get(args.counterion, 2.0)
+        r_counter = IONIC_RADII.get(args.counterion, VDW_RADII.get(args.counterion, 2.0))
         fw_species = {s for s in structure["species"] if s != args.counterion}
         if not fw_species:
             print("Error: no framework atoms found after excluding counterion species.")

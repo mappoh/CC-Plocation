@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from defaults import K_COULOMB, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
+from defaults import K_COULOMB, IONIC_RADII, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
 from pbc_utils import cross_pbc_distance_matrix, cross_direct_distance_matrix, minimum_image_distance
 
 
@@ -87,7 +87,9 @@ class ConfigurationScorer:
         self.framework_vdw: np.ndarray = np.array(
             [VDW_RADII.get(s, 2.0) for s in self.species], dtype=np.float64
         )
-        self.counterion_vdw: float = VDW_RADII.get(counterion_element, 2.0)
+        self.counterion_vdw: float = IONIC_RADII.get(
+            counterion_element, VDW_RADII.get(counterion_element, 2.0)
+        )
 
         # Identify which TM atoms are "buried" (not surface-exposed)
         self._buried_tm_mask = self._compute_buried_tm_mask()

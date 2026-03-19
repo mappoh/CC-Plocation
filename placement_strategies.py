@@ -26,6 +26,7 @@ from pbc_utils import (
 )
 from defaults import (
     OXIDATION_STATES as FORMAL_CHARGES,
+    IONIC_RADII,
     K_COULOMB as KE,
     KB_EV,
     TM_ELEMENTS,
@@ -78,9 +79,9 @@ class PlacementStrategy(ABC):
         self.atom_labels = list(structure["atom_labels"])
         self.exclusion_grid = exclusion_grid
         self.counterion_element = counterion_element
-        # Default min_ion_spacing = 2 * vdW radius of counterion (vdW sum)
+        # Default min_ion_spacing = 2 * ionic radius of counterion
         if min_ion_spacing is None:
-            r = VDW_RADII.get(counterion_element, 2.0)
+            r = IONIC_RADII.get(counterion_element, VDW_RADII.get(counterion_element, 2.0))
             self.min_ion_spacing = 2.0 * r
         else:
             self.min_ion_spacing = float(min_ion_spacing)
@@ -106,13 +107,14 @@ class PlacementStrategy(ABC):
         return True
 
     def _check_framework_distance(self, candidate):
-        """Return True if *candidate* passes exact vdW overlap check
-        against all framework atoms (supplements the grid check)."""
-        ion_r = VDW_RADII.get(self.counterion_element, 2.0)
+        """Return True if *candidate* passes overlap check against all
+        framework atoms (supplements the grid check).  Uses ionic radius
+        for the counterion since it is a charged species."""
+        ion_r = IONIC_RADII.get(self.counterion_element, VDW_RADII.get(self.counterion_element, 2.0))
         for i, pos in enumerate(self.positions):
             fw_r = VDW_RADII.get(self.atom_labels[i], 2.0)
             d = self._pbc_distance(candidate, pos)
-            if d < (fw_r + ion_r):  # full vdW sum as cutoff
+            if d < (fw_r + ion_r):
                 return False
         return True
 

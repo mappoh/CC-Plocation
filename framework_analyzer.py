@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from defaults import VDW_RADII, TM_ELEMENTS as DEFAULT_TM_ELEMENTS
+from defaults import VDW_RADII, IONIC_RADII, TM_ELEMENTS as DEFAULT_TM_ELEMENTS
 from pbc_utils import (
     cartesian_to_fractional,
     fractional_to_cartesian,
@@ -98,7 +98,9 @@ class ExclusionGrid:
         self.atom_labels: List[str] = list(structure["atom_labels"])
 
         # Counterion vdW radius -------------------------------------------
-        self._r_counter: float = VDW_RADII.get(counterion_element, 2.0)
+        self._r_counter: float = IONIC_RADII.get(
+            counterion_element, VDW_RADII.get(counterion_element, 2.0)
+        )
 
         # Grid state (populated by build()) --------------------------------
         self._grid: Optional[NDArray[np.bool_]] = None
