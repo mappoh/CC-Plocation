@@ -9,7 +9,7 @@ Counterion placement tool for Polyoxometalate (POM) structures. Generates divers
 - **Physics-based scoring**: vdW overlap rejection, TM proximity buffer, max framework distance constraint, Coulomb energy ranking, charge neutrality enforcement
 - **Surface-aware TM buffering**: distinguishes buried vs surface-exposed transition metal sites via coordination analysis
 - **Diversity analysis**: pairwise RMSD between configurations using Hungarian algorithm for optimal ion matching
-- **Periodic boundary conditions**: all distance calculations use minimum image convention
+- **Periodic boundary conditions**: overlap and spacing checks use minimum image convention; max framework distance uses direct Euclidean distance to keep ions near the primary-cell framework
 - **POSCAR output**: ready for VASP optimization with uniform naming for batch job submission
 
 ## Installation

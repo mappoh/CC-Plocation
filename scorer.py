@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 
 from defaults import K_COULOMB, MAX_FRAMEWORK_DISTANCE, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
-from pbc_utils import cross_pbc_distance_matrix, minimum_image_distance
+from pbc_utils import cross_pbc_distance_matrix, cross_direct_distance_matrix, minimum_image_distance
 
 
 class ConfigurationScorer:
@@ -233,21 +233,23 @@ class ConfigurationScorer:
         }
 
     def _check_max_framework_distance(
-        self, ion_positions: np.ndarray, fw_dist_mat: np.ndarray = None
+        self, ion_positions: np.ndarray
     ) -> Dict[str, Any]:
         """Check that every counterion is within max_framework_distance of
-        at least one framework atom."""
+        at least one framework atom.
+
+        Uses direct Euclidean distance (no PBC wrapping) so that ions
+        near cell boundaries are measured against the real framework
+        positions, not periodic images on the opposite side of the cell.
+        """
         if len(ion_positions) == 0:
             return {"passed": True, "value": 0.0,
                     "threshold": self.max_framework_distance,
                     "detail": "No ions to check"}
 
-        if fw_dist_mat is None:
-            dist_mat = cross_pbc_distance_matrix(
-                ion_positions, self.cart_coords, self.lattice
-            )
-        else:
-            dist_mat = fw_dist_mat
+        dist_mat = cross_direct_distance_matrix(
+            ion_positions, self.cart_coords
+        )
         # For each ion, find the distance to its nearest framework atom
         min_fw_per_ion = np.min(dist_mat, axis=1)
         max_of_mins = float(np.max(min_fw_per_ion))
@@ -361,7 +363,7 @@ class ConfigurationScorer:
         checks["ion_ion_overlap"] = self._check_ion_ion_overlap(ions)
         checks["tm_proximity"] = self._check_tm_proximity(ions)
         checks["min_ion_spacing"] = self._check_min_ion_spacing(ions)
-        checks["max_framework_distance"] = self._check_max_framework_distance(ions, fw_dist_mat)
+        checks["max_framework_distance"] = self._check_max_framework_distance(ions)
         checks["charge_neutrality"] = self._check_charge_neutrality(ions)
 
         valid = all(c["passed"] for c in checks.values())

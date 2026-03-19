@@ -197,6 +197,7 @@ def run(args):
         tm_elements=args.tm_elements,
         tm_buffer=args.tm_buffer,
         grid_resolution=args.grid_resolution,
+        max_framework_distance=args.max_framework_dist,
     )
     grid.build()
     allowed_frac = grid.get_allowed_fraction()

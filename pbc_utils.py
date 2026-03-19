@@ -167,6 +167,32 @@ def cross_pbc_distance_matrix(
     return np.linalg.norm(diff_cart, axis=-1)
 
 
+def cross_direct_distance_matrix(
+    positions_a: np.ndarray,
+    positions_b: np.ndarray,
+) -> np.ndarray:
+    """Compute direct Euclidean distance matrix between two sets of positions.
+
+    Unlike :func:`cross_pbc_distance_matrix`, this does **not** apply
+    minimum-image wrapping.  Use this when you need real-space distance
+    (e.g. "stay near the framework in the primary cell").
+
+    Parameters
+    ----------
+    positions_a : np.ndarray
+        (M, 3) array of Cartesian positions.
+    positions_b : np.ndarray
+        (N, 3) array of Cartesian positions.
+
+    Returns
+    -------
+    np.ndarray
+        (M, N) Euclidean distance matrix.
+    """
+    diff = positions_b[np.newaxis, :, :] - positions_a[:, np.newaxis, :]
+    return np.linalg.norm(diff, axis=-1)
+
+
 # ---------------------------------------------------------------------------
 # Periodic KDTree
 # ---------------------------------------------------------------------------

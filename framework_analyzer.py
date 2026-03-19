@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from defaults import VDW_RADII, TM_ELEMENTS as DEFAULT_TM_ELEMENTS
+from defaults import VDW_RADII, TM_ELEMENTS as DEFAULT_TM_ELEMENTS, MAX_FRAMEWORK_DISTANCE
 from pbc_utils import (
     cartesian_to_fractional,
     fractional_to_cartesian,
@@ -72,6 +72,7 @@ class ExclusionGrid:
         tm_buffer: float = 3.5,
         grid_resolution: float = 0.3,
         surface_aware: bool = True,
+        max_framework_distance: Optional[float] = None,
     ) -> None:
         self.structure = structure
         self.counterion_element = counterion_element
@@ -81,6 +82,10 @@ class ExclusionGrid:
         self.tm_buffer = tm_buffer
         self.grid_resolution = grid_resolution
         self.surface_aware = surface_aware
+        if max_framework_distance is None:
+            self.max_framework_distance = MAX_FRAMEWORK_DISTANCE
+        else:
+            self.max_framework_distance = float(max_framework_distance)
 
         # Unpack structure ------------------------------------------------
         self.lattice: NDArray[np.float64] = np.array(
@@ -156,6 +161,18 @@ class ExclusionGrid:
                 cart_grid, pos, total_cutoff
             )
             forbidden |= mask
+
+        # Mark voxels too far from ALL framework atoms as forbidden -----
+        # Uses direct Euclidean distance (no PBC) so that ions near cell
+        # boundaries are measured against the real framework, not periodic
+        # images on the opposite side.
+        near_any = np.zeros((na, nb, nc), dtype=np.bool_)
+        cutoff_sq = self.max_framework_distance ** 2
+        for idx in range(len(self.positions)):
+            diff = cart_grid - self.positions[idx]  # (..., 3)
+            dist_sq = np.sum(diff ** 2, axis=-1)
+            near_any |= dist_sq <= cutoff_sq
+        forbidden |= ~near_any
 
         self._grid = forbidden
         return self
