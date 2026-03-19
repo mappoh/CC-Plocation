@@ -15,13 +15,25 @@ Counterion placement tool for Polyoxometalate (POM) structures. Generates divers
 ## Installation
 
 ```bash
-# Clone and install
+# Clone and install with pip
 git clone https://github.com/mappoh/CC-Plocation.git
 cd CC-Plocation
 pip install .
 
 # Or install directly from GitHub
 pip install git+https://github.com/mappoh/CC-Plocation.git
+```
+
+Or with [uv](https://docs.astral.sh/uv/):
+
+```bash
+# Clone and install
+git clone https://github.com/mappoh/CC-Plocation.git
+cd CC-Plocation
+uv pip install .
+
+# Or install directly from GitHub
+uv pip install git+https://github.com/mappoh/CC-Plocation.git
 ```
 
 ### Requirements
