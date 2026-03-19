@@ -204,21 +204,26 @@ def run(args):
         # vdW-based floor: must exceed the smallest vdW contact distance
         # so there is actually room between vdW exclusion and max distance
         r_counter = VDW_RADII.get(args.counterion, 2.0)
+        fw_species = {s for s in structure["species"] if s != args.counterion}
+        if not fw_species:
+            print("Error: no framework atoms found after excluding counterion species.")
+            sys.exit(1)
         min_vdw_sum = min(
-            VDW_RADII.get(label, 1.5) + r_counter
-            for label in structure["atom_labels"]
+            VDW_RADII.get(s, 1.5) + r_counter for s in fw_species
         )
         min_viable = min_vdw_sum + 0.5  # 0.5 A shell beyond closest vdW contact
 
-        max_fw_dist = max(geometry_limit, min_viable)
-        max_fw_dist = min(max_fw_dist, MAX_FRAMEWORK_DISTANCE)  # cap at 6.0 A
-
-        if geometry_limit < min_viable:
+        if geometry_limit >= min_viable:
+            max_fw_dist = geometry_limit
+        else:
+            max_fw_dist = min_viable
             log.warning(
                 "Cell too small for geometry-based limit (%.2f A < vdW floor %.2f A); "
-                "using %.2f A — ions may extend near cell edges.",
-                geometry_limit, min_viable, max_fw_dist,
+                "ions may extend near cell edges.",
+                geometry_limit, min_viable,
             )
+        max_fw_dist = min(max_fw_dist, MAX_FRAMEWORK_DISTANCE)  # cap at 6.0 A
+
         log.info(
             "Adaptive max-framework-distance: %.2f A "
             "(half_min_cell=%.2f, max_radius=%.2f, min_viable=%.2f)",
