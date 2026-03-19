@@ -97,6 +97,12 @@ TM_ELEMENTS: List[str] = [
 TM_BUFFER_DISTANCE: float = 3.5
 
 # ---------------------------------------------------------------------------
+# Maximum distance (Angstroms) from the nearest framework atom.
+# Counterions placed beyond this are rejected to keep ions near the POM.
+# ---------------------------------------------------------------------------
+MAX_FRAMEWORK_DISTANCE: float = 6.0
+
+# ---------------------------------------------------------------------------
 # Scoring thresholds used during candidate-site evaluation
 # ---------------------------------------------------------------------------
 SCORING: Dict[str, float] = {
@@ -108,6 +114,7 @@ SCORING: Dict[str, float] = {
     "o_coordination_weight": 1.0,  # weight for oxygen coordination score
     "symmetry_weight": 0.5,      # weight for symmetry-equivalence score
     "electrostatic_weight": 0.8, # weight for simple electrostatic score
+    "max_framework_distance": MAX_FRAMEWORK_DISTANCE,  # max distance from nearest framework atom (A)
 }
 
 # ---------------------------------------------------------------------------

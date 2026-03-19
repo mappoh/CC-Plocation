@@ -112,6 +112,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Minimum distance between counterions (default: 2 * vdW radius).",
     )
     p.add_argument(
+        "--max-framework-dist", type=float, default=None,
+        help="Maximum distance from nearest framework atom (default: 6.0 A).",
+    )
+    p.add_argument(
         "--seed", type=int, default=42,
         help="Base random seed for reproducibility (default: 42).",
     )
@@ -217,6 +221,7 @@ def run(args):
         framework_charges=charges["species_charges"],
         tm_elements=set(args.tm_elements) if args.tm_elements else None,
         tm_buffer=args.tm_buffer,
+        max_framework_distance=args.max_framework_dist,
     )
 
     # 6. Create reporter
@@ -242,7 +247,7 @@ def run(args):
 
         # Create strategy instance once per strategy (avoids rebuilding
         # expensive internal data structures, e.g. electrostatic potential grid)
-        kwargs = {}
+        kwargs = {"max_framework_distance": args.max_framework_dist}
         if args.min_ion_spacing is not None:
             kwargs["min_ion_spacing"] = args.min_ion_spacing
 

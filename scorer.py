@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from defaults import K_COULOMB, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
+from defaults import K_COULOMB, MAX_FRAMEWORK_DISTANCE, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
 from pbc_utils import cross_pbc_distance_matrix, minimum_image_distance
 
 
@@ -53,6 +53,7 @@ class ConfigurationScorer:
         tm_buffer: float = 3.5,
         energy_threshold: Optional[float] = None,
         min_ion_spacing: float = 2.0,
+        max_framework_distance: Optional[float] = None,
     ) -> None:
         self.structure = structure
         self.lattice: np.ndarray = np.array(structure["lattice"], dtype=np.float64)
@@ -64,6 +65,10 @@ class ConfigurationScorer:
         self.tm_buffer = tm_buffer
         self.energy_threshold = energy_threshold
         self.min_ion_spacing = min_ion_spacing
+        if max_framework_distance is None:
+            self.max_framework_distance = MAX_FRAMEWORK_DISTANCE
+        else:
+            self.max_framework_distance = float(max_framework_distance)
 
         # Identify TM sites
         if tm_elements is None:
@@ -115,16 +120,19 @@ class ConfigurationScorer:
         return buried
 
     def _check_framework_overlap(
-        self, ion_positions: np.ndarray
+        self, ion_positions: np.ndarray, fw_dist_mat: np.ndarray = None
     ) -> Dict[str, Any]:
         """Check that no counterion overlaps with a framework atom."""
         if len(ion_positions) == 0:
             return {"passed": True, "value": np.inf, "threshold": 0.0,
                     "detail": "No ions to check"}
 
-        dist_mat = cross_pbc_distance_matrix(
-            ion_positions, self.cart_coords, self.lattice
-        )
+        if fw_dist_mat is None:
+            dist_mat = cross_pbc_distance_matrix(
+                ion_positions, self.cart_coords, self.lattice
+            )
+        else:
+            dist_mat = fw_dist_mat
         # vdW sum for each (ion, framework_atom) pair
         vdw_sums = self.counterion_vdw + self.framework_vdw  # shape (N_fw,)
         # Broadcast: dist_mat shape (N_ion, N_fw), vdw_sums shape (N_fw,)
@@ -224,6 +232,36 @@ class ConfigurationScorer:
             ),
         }
 
+    def _check_max_framework_distance(
+        self, ion_positions: np.ndarray, fw_dist_mat: np.ndarray = None
+    ) -> Dict[str, Any]:
+        """Check that every counterion is within max_framework_distance of
+        at least one framework atom."""
+        if len(ion_positions) == 0:
+            return {"passed": True, "value": 0.0,
+                    "threshold": self.max_framework_distance,
+                    "detail": "No ions to check"}
+
+        if fw_dist_mat is None:
+            dist_mat = cross_pbc_distance_matrix(
+                ion_positions, self.cart_coords, self.lattice
+            )
+        else:
+            dist_mat = fw_dist_mat
+        # For each ion, find the distance to its nearest framework atom
+        min_fw_per_ion = np.min(dist_mat, axis=1)
+        max_of_mins = float(np.max(min_fw_per_ion))
+        passed = max_of_mins <= self.max_framework_distance
+        return {
+            "passed": passed,
+            "value": max_of_mins,
+            "threshold": self.max_framework_distance,
+            "detail": (
+                f"Max nearest-framework dist {max_of_mins:.3f} A "
+                f"(limit {self.max_framework_distance:.3f} A)"
+            ),
+        }
+
     def _check_charge_neutrality(
         self, ion_positions: np.ndarray
     ) -> Dict[str, Any]:
@@ -312,11 +350,18 @@ class ConfigurationScorer:
         """
         ions = np.atleast_2d(np.array(counterion_positions, dtype=np.float64))
 
+        # Pre-compute distance matrices to avoid redundant work
+        fw_dist_mat = (
+            cross_pbc_distance_matrix(ions, self.cart_coords, self.lattice)
+            if len(ions) > 0 else None
+        )
+
         checks: Dict[str, Dict[str, Any]] = {}
-        checks["framework_overlap"] = self._check_framework_overlap(ions)
+        checks["framework_overlap"] = self._check_framework_overlap(ions, fw_dist_mat)
         checks["ion_ion_overlap"] = self._check_ion_ion_overlap(ions)
         checks["tm_proximity"] = self._check_tm_proximity(ions)
         checks["min_ion_spacing"] = self._check_min_ion_spacing(ions)
+        checks["max_framework_distance"] = self._check_max_framework_distance(ions, fw_dist_mat)
         checks["charge_neutrality"] = self._check_charge_neutrality(ions)
 
         valid = all(c["passed"] for c in checks.values())
@@ -328,14 +373,8 @@ class ConfigurationScorer:
         if self.energy_threshold is not None and coulomb_energy > self.energy_threshold:
             valid = False
 
-        # Distance summaries
-        if len(ions) > 0:
-            fw_dists = cross_pbc_distance_matrix(
-                ions, self.cart_coords, self.lattice
-            )
-            min_ion_fw = float(np.min(fw_dists))
-        else:
-            min_ion_fw = np.inf
+        # Distance summaries (reuse pre-computed matrix)
+        min_ion_fw = float(np.min(fw_dist_mat)) if fw_dist_mat is not None else np.inf
 
         if len(ions) >= 2:
             ion_dists = cross_pbc_distance_matrix(

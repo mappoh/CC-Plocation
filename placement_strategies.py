@@ -28,6 +28,7 @@ from defaults import (
     OXIDATION_STATES as FORMAL_CHARGES,
     K_COULOMB as KE,
     KB_EV,
+    MAX_FRAMEWORK_DISTANCE,
     TM_ELEMENTS,
     VDW_RADII,
 )
@@ -70,6 +71,7 @@ class PlacementStrategy(ABC):
         counterion_element,
         min_ion_spacing=None,
         max_attempts=10000,
+        max_framework_distance=None,
     ):
         self.structure = structure
         self.lattice = np.array(structure["lattice"], dtype=np.float64)
@@ -84,6 +86,10 @@ class PlacementStrategy(ABC):
         else:
             self.min_ion_spacing = float(min_ion_spacing)
         self.max_attempts = int(max_attempts)
+        if max_framework_distance is None:
+            self.max_framework_distance = MAX_FRAMEWORK_DISTANCE
+        else:
+            self.max_framework_distance = float(max_framework_distance)
 
     # ---- helpers used by multiple strategies ----------------------------
 
@@ -109,6 +115,14 @@ class PlacementStrategy(ABC):
             if d < (fw_r + ion_r):  # full vdW sum as cutoff
                 return False
         return True
+
+    def _check_max_framework_distance(self, candidate):
+        """Return True if *candidate* is within max_framework_distance
+        of at least one framework atom, respecting PBC."""
+        for pos in self.positions:
+            if self._pbc_distance(candidate, pos) <= self.max_framework_distance:
+                return True
+        return False
 
     def _random_fractional_point(self, rng):
         """Return a uniformly random fractional coordinate in [0, 1)^3."""
@@ -160,11 +174,15 @@ class PlacementStrategy(ABC):
                 if not self.exclusion_grid.is_allowed(candidate):
                     continue
 
-                # 2. Exact framework distance check (slower, accurate)
+                # 2. Max distance from framework (fast early-exit)
+                if not self._check_max_framework_distance(candidate):
+                    continue
+
+                # 3. Exact framework distance check (slower, accurate)
                 if not self._check_framework_distance(candidate):
                     continue
 
-                # 3. Min spacing to already-placed ions
+                # 4. Min spacing to already-placed ions
                 if not self._check_min_spacing(candidate, placed):
                     continue
 
@@ -278,6 +296,7 @@ class PoissonDisk(PlacementStrategy):
             candidate = self._frac_to_cart(frac)
             candidate = self._wrap_cart(candidate)
             if (self.exclusion_grid.is_allowed(candidate)
+                    and self._check_max_framework_distance(candidate)
                     and self._check_framework_distance(candidate)):
                 placed.append(candidate)
                 break
@@ -299,8 +318,10 @@ class PoissonDisk(PlacementStrategy):
             for _ in range(self.k):
                 candidate = self._random_in_annulus(rng, parent, r_min, r_max)
 
-                # Exclusion grid + exact framework distance
+                # Exclusion grid + distance checks
                 if not self.exclusion_grid.is_allowed(candidate):
+                    continue
+                if not self._check_max_framework_distance(candidate):
                     continue
                 if not self._check_framework_distance(candidate):
                     continue
@@ -463,7 +484,7 @@ class ShellBased(PlacementStrategy):
         Default 1.5.
     """
 
-    def __init__(self, *args, buffer=3.5, shell_spacing=2.0, **kwargs):
+    def __init__(self, *args, buffer=2.0, shell_spacing=1.5, **kwargs):
         super().__init__(*args, **kwargs)
         self.buffer = float(buffer)
         self.shell_spacing = float(shell_spacing)
@@ -528,6 +549,8 @@ class ShellBased(PlacementStrategy):
                 candidate = self._propose_position(rng, placed)
                 candidate = self._wrap_cart(candidate)
                 if not self.exclusion_grid.is_allowed(candidate):
+                    continue
+                if not self._check_max_framework_distance(candidate):
                     continue
                 if not self._check_framework_distance(candidate):
                     continue
@@ -790,6 +813,7 @@ class BoltzmannMC(PlacementStrategy):
             self.counterion_element,
             min_ion_spacing=self.min_ion_spacing,
             max_attempts=self.max_attempts,
+            max_framework_distance=self.max_framework_distance,
         )
         initial = init_strategy.place(n_ions, seed=seed)
         if initial is None:
@@ -816,8 +840,10 @@ class BoltzmannMC(PlacementStrategy):
             displacement = rng.normal(scale=self.mc_step_sigma, size=3)
             new_pos = self._wrap_cart(old_pos + displacement)
 
-            # Check exclusion grid + exact framework distance
+            # Check exclusion grid + distance constraints
             if not self.exclusion_grid.is_allowed(new_pos):
+                continue
+            if not self._check_max_framework_distance(new_pos):
                 continue
             if not self._check_framework_distance(new_pos):
                 continue

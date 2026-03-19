@@ -6,7 +6,7 @@ Counterion placement tool for Polyoxometalate (POM) structures. Generates divers
 
 - **6 placement strategies**: random uniform, Poisson disk, clustered Gaussian, shell-based, electrostatic-guided, Boltzmann Monte Carlo
 - **Automatic charge detection**: determines counterion count from formal oxidation states
-- **Physics-based scoring**: vdW overlap rejection, TM proximity buffer, Coulomb energy ranking, charge neutrality enforcement
+- **Physics-based scoring**: vdW overlap rejection, TM proximity buffer, max framework distance constraint, Coulomb energy ranking, charge neutrality enforcement
 - **Surface-aware TM buffering**: distinguishes buried vs surface-exposed transition metal sites via coordination analysis
 - **Diversity analysis**: pairwise RMSD between configurations using Hungarian algorithm for optimal ion matching
 - **Periodic boundary conditions**: all distance calculations use minimum image convention
@@ -45,8 +45,11 @@ cc-plocation --input structure.vasp --counterion K --strategies boltzmann electr
 # Divalent counterion:
 cc-plocation --input structure.vasp --counterion Ca --counterion-charge 2
 
-# Custom TM buffer and output directory:
-cc-plocation --input structure.vasp --counterion Na --tm-buffer 4.0 --output-dir ./my_configs
+# Custom TM buffer and max framework distance:
+cc-plocation --input structure.vasp --counterion Na --tm-buffer 4.0 --max-framework-dist 5.0
+
+# Custom output directory:
+cc-plocation --input structure.vasp --counterion Na --output-dir ./my_configs
 
 # Override oxidation states:
 cc-plocation --input structure.vasp --counterion K --oxidation-states Ni:+3
@@ -69,6 +72,7 @@ cc-plocation --input structure.vasp --counterion K -v
 | `--tm-buffer` | Exclusion buffer around TM sites (A) | 3.5 |
 | `--grid-resolution` | Exclusion grid voxel size (A) | 0.5 |
 | `--min-ion-spacing` | Minimum distance between counterions (A) | 2 x vdW radius |
+| `--max-framework-dist` | Maximum distance from nearest framework atom (A) | 6.0 |
 | `--seed` | Random seed for reproducibility | 42 |
 | `--output-dir`, `-o` | Output directory | ./configs |
 | `--no-json` | Skip JSON report | false |
@@ -96,6 +100,7 @@ Configurations are rejected if any of these checks fail:
 - Ion overlaps with framework atom (vdW radii sum)
 - Ion-ion overlap (vdW radii sum)
 - Ion too close to buried TM site (configurable buffer)
+- Ion too far from nearest framework atom (max framework distance)
 - Charge neutrality violation
 
 Valid configurations are ranked by Coulomb energy (lower is better).
