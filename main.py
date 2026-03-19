@@ -38,7 +38,7 @@ from placement_strategies import (
     ElectrostaticGuided,
     BoltzmannMC,
 )
-from defaults import MAX_FRAMEWORK_DISTANCE
+from defaults import MAX_FRAMEWORK_DISTANCE, VDW_RADII
 from scorer import ConfigurationScorer
 from diversity import DiversityAnalyzer
 from writer import write_poscar, write_batch
@@ -197,13 +197,32 @@ def run(args):
         fw_info = FrameworkInfo(structure, tm_elements=args.tm_elements)
         cell_lengths = np.linalg.norm(fw_info.lattice, axis=1)
         half_min_cell = float(cell_lengths.min()) / 2.0
-        max_fw_dist = half_min_cell - fw_info.max_radius - 1.0  # 1.0 A margin
-        max_fw_dist = max(max_fw_dist, 2.0)  # floor: at least 2.0 A
+
+        # Geometry-based limit: keep ions inside cell
+        geometry_limit = half_min_cell - fw_info.max_radius - 1.0
+
+        # vdW-based floor: must exceed the smallest vdW contact distance
+        # so there is actually room between vdW exclusion and max distance
+        r_counter = VDW_RADII.get(args.counterion, 2.0)
+        min_vdw_sum = min(
+            VDW_RADII.get(label, 1.5) + r_counter
+            for label in structure["atom_labels"]
+        )
+        min_viable = min_vdw_sum + 0.5  # 0.5 A shell beyond closest vdW contact
+
+        max_fw_dist = max(geometry_limit, min_viable)
         max_fw_dist = min(max_fw_dist, MAX_FRAMEWORK_DISTANCE)  # cap at 6.0 A
+
+        if geometry_limit < min_viable:
+            log.warning(
+                "Cell too small for geometry-based limit (%.2f A < vdW floor %.2f A); "
+                "using %.2f A — ions may extend near cell edges.",
+                geometry_limit, min_viable, max_fw_dist,
+            )
         log.info(
             "Adaptive max-framework-distance: %.2f A "
-            "(half_min_cell=%.2f, max_radius=%.2f)",
-            max_fw_dist, half_min_cell, fw_info.max_radius,
+            "(half_min_cell=%.2f, max_radius=%.2f, min_viable=%.2f)",
+            max_fw_dist, half_min_cell, fw_info.max_radius, min_viable,
         )
         print(f"Max framework distance (adaptive): {max_fw_dist:.2f} A")
 
