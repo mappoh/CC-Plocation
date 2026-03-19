@@ -28,7 +28,6 @@ from defaults import (
     OXIDATION_STATES as FORMAL_CHARGES,
     K_COULOMB as KE,
     KB_EV,
-    MAX_FRAMEWORK_DISTANCE,
     TM_ELEMENTS,
     VDW_RADII,
 )
@@ -87,9 +86,10 @@ class PlacementStrategy(ABC):
             self.min_ion_spacing = float(min_ion_spacing)
         self.max_attempts = int(max_attempts)
         if max_framework_distance is None:
-            self.max_framework_distance = MAX_FRAMEWORK_DISTANCE
-        else:
-            self.max_framework_distance = float(max_framework_distance)
+            raise ValueError(
+                "max_framework_distance must be provided."
+            )
+        self.max_framework_distance = float(max_framework_distance)
 
     # ---- helpers used by multiple strategies ----------------------------
 

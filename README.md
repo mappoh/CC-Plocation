@@ -9,6 +9,7 @@ Counterion placement tool for Polyoxometalate (POM) structures. Generates divers
 - **Physics-based scoring**: vdW overlap rejection, TM proximity buffer, max framework distance constraint, Coulomb energy ranking, charge neutrality enforcement
 - **Surface-aware TM buffering**: distinguishes buried vs surface-exposed transition metal sites via coordination analysis
 - **Diversity analysis**: pairwise RMSD between configurations using Hungarian algorithm for optimal ion matching
+- **Adaptive framework distance**: max distance from framework atoms is computed from cell geometry and POM radius, keeping ions well inside the cell; overridable via `--max-framework-dist`
 - **Periodic boundary conditions**: overlap and spacing checks use minimum image convention; max framework distance uses direct Euclidean distance to keep ions near the primary-cell framework
 - **POSCAR output**: ready for VASP optimization with uniform naming for batch job submission
 
@@ -84,7 +85,7 @@ cc-plocation --input structure.vasp --counterion K -v
 | `--tm-buffer` | Exclusion buffer around TM sites (A) | 3.5 |
 | `--grid-resolution` | Exclusion grid voxel size (A) | 0.5 |
 | `--min-ion-spacing` | Minimum distance between counterions (A) | 2 x vdW radius |
-| `--max-framework-dist` | Maximum distance from nearest framework atom (A) | 6.0 |
+| `--max-framework-dist` | Maximum distance from nearest framework atom (A) | adaptive (capped at 6.0) |
 | `--seed` | Random seed for reproducibility | 42 |
 | `--output-dir`, `-o` | Output directory | ./configs |
 | `--no-json` | Skip JSON report | false |

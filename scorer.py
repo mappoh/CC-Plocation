@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from defaults import K_COULOMB, MAX_FRAMEWORK_DISTANCE, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
+from defaults import K_COULOMB, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
 from pbc_utils import cross_pbc_distance_matrix, cross_direct_distance_matrix, minimum_image_distance
 
 
@@ -66,9 +66,10 @@ class ConfigurationScorer:
         self.energy_threshold = energy_threshold
         self.min_ion_spacing = min_ion_spacing
         if max_framework_distance is None:
-            self.max_framework_distance = MAX_FRAMEWORK_DISTANCE
-        else:
-            self.max_framework_distance = float(max_framework_distance)
+            raise ValueError(
+                "max_framework_distance must be provided."
+            )
+        self.max_framework_distance = float(max_framework_distance)
 
         # Identify TM sites
         if tm_elements is None:

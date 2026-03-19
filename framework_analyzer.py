@@ -15,7 +15,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 from numpy.typing import NDArray
 
-from defaults import VDW_RADII, TM_ELEMENTS as DEFAULT_TM_ELEMENTS, MAX_FRAMEWORK_DISTANCE
+from defaults import VDW_RADII, TM_ELEMENTS as DEFAULT_TM_ELEMENTS
 from pbc_utils import (
     cartesian_to_fractional,
     fractional_to_cartesian,
@@ -83,9 +83,10 @@ class ExclusionGrid:
         self.grid_resolution = grid_resolution
         self.surface_aware = surface_aware
         if max_framework_distance is None:
-            self.max_framework_distance = MAX_FRAMEWORK_DISTANCE
-        else:
-            self.max_framework_distance = float(max_framework_distance)
+            raise ValueError(
+                "max_framework_distance must be provided."
+            )
+        self.max_framework_distance = float(max_framework_distance)
 
         # Unpack structure ------------------------------------------------
         self.lattice: NDArray[np.float64] = np.array(

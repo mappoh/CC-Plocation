@@ -38,6 +38,7 @@ from placement_strategies import (
     ElectrostaticGuided,
     BoltzmannMC,
 )
+from defaults import MAX_FRAMEWORK_DISTANCE
 from scorer import ConfigurationScorer
 from diversity import DiversityAnalyzer
 from writer import write_poscar, write_batch
@@ -113,7 +114,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--max-framework-dist", type=float, default=None,
-        help="Maximum distance from nearest framework atom (default: 6.0 A).",
+        help="Maximum distance from nearest framework atom (default: adaptive based on cell geometry, capped at 6.0 A).",
     )
     p.add_argument(
         "--seed", type=int, default=42,
@@ -189,7 +190,24 @@ def run(args):
     print(f"Structure: {formula} ({len(structure['positions'])} atoms)")
     print(f"Net charge: {net_charge}, placing {n_ions} × {args.counterion}{'%+d' % args.counterion_charge}")
 
-    # 3. Build exclusion grid
+    # 3. Compute adaptive max-framework-distance if not set by user
+    if args.max_framework_dist is not None:
+        max_fw_dist = args.max_framework_dist
+    else:
+        fw_info = FrameworkInfo(structure, tm_elements=args.tm_elements)
+        cell_lengths = np.linalg.norm(fw_info.lattice, axis=1)
+        half_min_cell = float(cell_lengths.min()) / 2.0
+        max_fw_dist = half_min_cell - fw_info.max_radius - 1.0  # 1.0 A margin
+        max_fw_dist = max(max_fw_dist, 2.0)  # floor: at least 2.0 A
+        max_fw_dist = min(max_fw_dist, MAX_FRAMEWORK_DISTANCE)  # cap at 6.0 A
+        log.info(
+            "Adaptive max-framework-distance: %.2f A "
+            "(half_min_cell=%.2f, max_radius=%.2f)",
+            max_fw_dist, half_min_cell, fw_info.max_radius,
+        )
+        print(f"Max framework distance (adaptive): {max_fw_dist:.2f} A")
+
+    # 4. Build exclusion grid
     log.info("Building exclusion grid (resolution=%.2f A) ...", args.grid_resolution)
     grid = ExclusionGrid(
         structure,
@@ -197,7 +215,7 @@ def run(args):
         tm_elements=args.tm_elements,
         tm_buffer=args.tm_buffer,
         grid_resolution=args.grid_resolution,
-        max_framework_distance=args.max_framework_dist,
+        max_framework_distance=max_fw_dist,
     )
     grid.build()
     allowed_frac = grid.get_allowed_fraction()
@@ -208,13 +226,13 @@ def run(args):
         print("Try reducing --tm-buffer or --grid-resolution.")
         sys.exit(1)
 
-    # 4. Determine strategies
+    # 5. Determine strategies
     if "all" in args.strategies:
         strategy_names = ALL_STRATEGIES
     else:
         strategy_names = args.strategies
 
-    # 5. Create scorer
+    # 6. Create scorer
     scorer = ConfigurationScorer(
         structure,
         args.counterion,
@@ -222,13 +240,13 @@ def run(args):
         framework_charges=charges["species_charges"],
         tm_elements=set(args.tm_elements) if args.tm_elements else None,
         tm_buffer=args.tm_buffer,
-        max_framework_distance=args.max_framework_dist,
+        max_framework_distance=max_fw_dist,
     )
 
-    # 6. Create reporter
+    # 7. Create reporter
     reporter = Reporter(structure, args.counterion)
 
-    # 7. Run strategies
+    # 8. Run strategies
     all_valid_configs = []
     all_valid_scores = []
     all_strategy_labels = []
@@ -248,7 +266,7 @@ def run(args):
 
         # Create strategy instance once per strategy (avoids rebuilding
         # expensive internal data structures, e.g. electrostatic potential grid)
-        kwargs = {"max_framework_distance": args.max_framework_dist}
+        kwargs = {"max_framework_distance": max_fw_dist}
         if args.min_ion_spacing is not None:
             kwargs["min_ion_spacing"] = args.min_ion_spacing
 
@@ -297,7 +315,7 @@ def run(args):
 
         print(f"    Generated: {n_generated}  Passed: {n_passed}")
 
-    # 8. Diversity analysis
+    # 9. Diversity analysis
     diversity_summary = None
     if len(all_valid_configs) >= 2:
         da = DiversityAnalyzer(structure["lattice"])
@@ -309,7 +327,7 @@ def run(args):
             diversity_summary["max_rmsd"],
         )
 
-    # 9. Output reports
+    # 10. Output reports
     reporter.print_summary_table(
         diversity_rmsd=diversity_summary["mean_rmsd"] if diversity_summary else None,
         output_dir=args.output_dir,
