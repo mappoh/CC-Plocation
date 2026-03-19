@@ -114,10 +114,13 @@ class Reporter:
             Whether the configuration passed all hard checks.
         """
         # Make positions serialisable
-        positions = np.array(counterion_positions, dtype=np.float64).tolist()
+        if counterion_positions is not None:
+            positions = np.array(counterion_positions, dtype=np.float64).tolist()
+        else:
+            positions = None
 
         # Make score_result JSON-serialisable (convert numpy types)
-        clean_score = _make_serialisable(score_result)
+        clean_score = _make_serialisable(score_result) if score_result is not None else None
 
         self._results.append(
             {
@@ -166,24 +169,17 @@ class Reporter:
         for name, info in strat_summary.items():
             configs = []
             for entry in info["entries"]:
+                sr = entry["score_result"]
                 configs.append(
                     {
                         "seed": entry["seed"],
                         "valid": entry["valid"],
                         "counterion_positions": entry["counterion_positions"],
-                        "coulomb_energy_eV": entry["score_result"].get(
-                            "coulomb_energy_eV"
-                        ),
-                        "min_ion_framework_dist": entry["score_result"].get(
-                            "min_ion_framework_dist"
-                        ),
-                        "min_ion_ion_dist": entry["score_result"].get(
-                            "min_ion_ion_dist"
-                        ),
-                        "min_ion_tm_dist": entry["score_result"].get(
-                            "min_ion_tm_dist"
-                        ),
-                        "checks": entry["score_result"].get("checks", {}),
+                        "coulomb_energy_eV": sr.get("coulomb_energy_eV") if sr else None,
+                        "min_ion_framework_dist": sr.get("min_ion_framework_dist") if sr else None,
+                        "min_ion_ion_dist": sr.get("min_ion_ion_dist") if sr else None,
+                        "min_ion_tm_dist": sr.get("min_ion_tm_dist") if sr else None,
+                        "checks": sr.get("checks", {}) if sr else {},
                     }
                 )
             report["per_strategy"][name] = configs
