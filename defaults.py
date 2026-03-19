@@ -60,6 +60,16 @@ IONIC_RADII: Dict[str, float] = {
     "NH4": 1.48,  # ammonium, treated as pseudo-atom
 }
 
+
+def get_counterion_radius(element: str) -> float:
+    """Return the best available radius for a counterion element.
+
+    Prefers the Shannon ionic radius, falls back to the van der Waals
+    radius, and finally to 2.0 A if the element appears in neither table.
+    """
+    return IONIC_RADII.get(element, VDW_RADII.get(element, 2.0))
+
+
 # ---------------------------------------------------------------------------
 # Default formal oxidation states for POM framework elements
 # ---------------------------------------------------------------------------

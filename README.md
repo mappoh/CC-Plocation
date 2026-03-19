@@ -110,8 +110,8 @@ Output files are named `{input_prefix}_{NNN}.vasp` (e.g. `mono_001.vasp`, `mono_
 
 Configurations are rejected if any of these checks fail:
 
-- Ion overlaps with framework atom (vdW radii sum)
-- Ion-ion overlap (vdW radii sum)
+- Ion overlaps with framework atom (ionic + vdW radius sum)
+- Ion-ion overlap (ionic radius sum)
 - Ion too close to buried TM site (configurable buffer)
 - Ion too far from nearest framework atom (max framework distance)
 - Charge neutrality violation

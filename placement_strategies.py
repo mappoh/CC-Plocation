@@ -26,11 +26,11 @@ from pbc_utils import (
 )
 from defaults import (
     OXIDATION_STATES as FORMAL_CHARGES,
-    IONIC_RADII,
     K_COULOMB as KE,
     KB_EV,
     TM_ELEMENTS,
     VDW_RADII,
+    get_counterion_radius,
 )
 
 
@@ -79,10 +79,10 @@ class PlacementStrategy(ABC):
         self.atom_labels = list(structure["atom_labels"])
         self.exclusion_grid = exclusion_grid
         self.counterion_element = counterion_element
+        self._ion_r: float = get_counterion_radius(counterion_element)
         # Default min_ion_spacing = 2 * ionic radius of counterion
         if min_ion_spacing is None:
-            r = IONIC_RADII.get(counterion_element, VDW_RADII.get(counterion_element, 2.0))
-            self.min_ion_spacing = 2.0 * r
+            self.min_ion_spacing = 2.0 * self._ion_r
         else:
             self.min_ion_spacing = float(min_ion_spacing)
         self.max_attempts = int(max_attempts)
@@ -110,11 +110,10 @@ class PlacementStrategy(ABC):
         """Return True if *candidate* passes overlap check against all
         framework atoms (supplements the grid check).  Uses ionic radius
         for the counterion since it is a charged species."""
-        ion_r = IONIC_RADII.get(self.counterion_element, VDW_RADII.get(self.counterion_element, 2.0))
         for i, pos in enumerate(self.positions):
             fw_r = VDW_RADII.get(self.atom_labels[i], 2.0)
             d = self._pbc_distance(candidate, pos)
-            if d < (fw_r + ion_r):
+            if d < (fw_r + self._ion_r):
                 return False
         return True
 
@@ -168,7 +167,7 @@ class PlacementStrategy(ABC):
                 if not self.exclusion_grid.is_allowed(candidate):
                     continue
 
-                # 2. Exact framework overlap check (vdW contact)
+                # 2. Exact framework overlap check (radius contact)
                 if not self._check_framework_distance(candidate):
                     continue
 

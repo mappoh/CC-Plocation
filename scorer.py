@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 
-from defaults import K_COULOMB, IONIC_RADII, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS
+from defaults import K_COULOMB, TM_COORDINATION_CUTOFF, VDW_RADII, TM_ELEMENTS, get_counterion_radius
 from pbc_utils import cross_pbc_distance_matrix, cross_direct_distance_matrix, minimum_image_distance
 
 
@@ -87,9 +87,7 @@ class ConfigurationScorer:
         self.framework_vdw: np.ndarray = np.array(
             [VDW_RADII.get(s, 2.0) for s in self.species], dtype=np.float64
         )
-        self.counterion_vdw: float = IONIC_RADII.get(
-            counterion_element, VDW_RADII.get(counterion_element, 2.0)
-        )
+        self.counterion_radius: float = get_counterion_radius(counterion_element)
 
         # Identify which TM atoms are "buried" (not surface-exposed)
         self._buried_tm_mask = self._compute_buried_tm_mask()
@@ -136,27 +134,28 @@ class ConfigurationScorer:
             )
         else:
             dist_mat = fw_dist_mat
-        # vdW sum for each (ion, framework_atom) pair
-        vdw_sums = self.counterion_vdw + self.framework_vdw  # shape (N_fw,)
-        # Broadcast: dist_mat shape (N_ion, N_fw), vdw_sums shape (N_fw,)
-        violations = dist_mat < vdw_sums[np.newaxis, :]
+        # Radius sum for each (ion, framework_atom) pair:
+        # counterion ionic radius + framework atom vdW radius
+        radius_sums = self.counterion_radius + self.framework_vdw  # shape (N_fw,)
+        # Broadcast: dist_mat shape (N_ion, N_fw), radius_sums shape (N_fw,)
+        violations = dist_mat < radius_sums[np.newaxis, :]
         min_dist = float(np.min(dist_mat))
-        min_vdw = float(vdw_sums[np.unravel_index(np.argmin(dist_mat), dist_mat.shape)[1]])
+        min_threshold = float(radius_sums[np.unravel_index(np.argmin(dist_mat), dist_mat.shape)[1]])
         passed = not np.any(violations)
         return {
             "passed": passed,
             "value": min_dist,
-            "threshold": min_vdw,
+            "threshold": min_threshold,
             "detail": (
                 f"Min ion-framework dist {min_dist:.3f} A "
-                f"(vdW sum threshold {min_vdw:.3f} A)"
+                f"(radius sum threshold {min_threshold:.3f} A)"
             ),
         }
 
     def _check_ion_ion_overlap(
         self, ion_positions: np.ndarray
     ) -> Dict[str, Any]:
-        """Check that no two counterions overlap (vdW criterion)."""
+        """Check that no two counterions overlap (ionic radius criterion)."""
         n = len(ion_positions)
         if n < 2:
             return {"passed": True, "value": np.inf, "threshold": 0.0,
@@ -167,15 +166,15 @@ class ConfigurationScorer:
         )
         np.fill_diagonal(dist_mat, np.inf)
         min_dist = float(np.min(dist_mat))
-        vdw_sum = 2.0 * self.counterion_vdw
-        passed = min_dist > vdw_sum
+        radius_sum = 2.0 * self.counterion_radius
+        passed = min_dist > radius_sum
         return {
             "passed": passed,
             "value": min_dist,
-            "threshold": vdw_sum,
+            "threshold": radius_sum,
             "detail": (
                 f"Min ion-ion dist {min_dist:.3f} A "
-                f"(vdW sum threshold {vdw_sum:.3f} A)"
+                f"(radius sum threshold {radius_sum:.3f} A)"
             ),
         }
 
