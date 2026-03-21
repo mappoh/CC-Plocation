@@ -216,11 +216,11 @@ def run(args):
         if geometry_limit >= min_viable:
             max_fw_dist = geometry_limit
         else:
-            max_fw_dist = min_viable
+            max_fw_dist = MAX_FRAMEWORK_DISTANCE
             log.warning(
                 "Cell too small for geometry-based limit (%.2f A < vdW floor %.2f A); "
-                "ions may extend near cell edges.",
-                geometry_limit, min_viable,
+                "using default max distance %.1f A — cell boundaries constrain placement.",
+                geometry_limit, min_viable, MAX_FRAMEWORK_DISTANCE,
             )
         max_fw_dist = min(max_fw_dist, MAX_FRAMEWORK_DISTANCE)  # cap at 6.0 A
 
